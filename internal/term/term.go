@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/tidepark/tidetop/internal/render"
 	xterm "golang.org/x/term"
@@ -90,6 +91,9 @@ type Screen struct {
 	// Tol 은 다시 쓰지 않고 넘기는 색 차이다(빨강·초록·파랑 가운데 가장 큰 차이).
 	// 글자가 같고 색이 이만큼 안에서만 바뀐 칸은 그대로 둔다. 화면의 색은 Tol 넘게 어긋나지 않는다.
 	Tol int32
+	// Asking 이면 쓴 장 끝에 「여기까지 그렸으면 알려 달라」(Ask)를 붙여 같이 보낸다
+	Asking bool
+	buf    []byte // 장마다 다시 쓰는 글 판
 }
 
 func NewScreen(out io.Writer) *Screen { return &Screen{out: out} }
@@ -126,7 +130,10 @@ func (s *Screen) Draw(g *render.Grid) bool {
 	differs := func(i int) bool {
 		return g.Ch[i] != old.Ch[i] || !near(g.Fg[i], old.Fg[i], s.Tol) || !near(g.Bg[i], old.Bg[i], s.Tol)
 	}
-	var b strings.Builder
+	// 한 장을 한꺼번에 보이게 한다(모르는 터미널은 이 부호를 무시한다). 커서 숨김을 장마다 다시 보낸다.
+	// 글은 판 하나에 엮어 한 번에 쓴다(시스템 호출을 줄인다)
+	b := append(s.buf[:0], esc+"?2026h"+esc+"?25l"...)
+	head := len(b)
 	nowFg, nowBg := render.None, render.None
 	for y := 0; y < g.Rows; y++ {
 		at := y * g.Cols
@@ -141,31 +148,46 @@ func (s *Screen) Draw(g *render.Grid) bool {
 					end = k
 				}
 			}
-			b.WriteString(esc + strconv.Itoa(y+1) + ";" + strconv.Itoa(x+1) + "H")
+			b = append(b, esc...)
+			b = strconv.AppendInt(b, int64(y+1), 10)
+			b = append(b, ';')
+			b = strconv.AppendInt(b, int64(x+1), 10)
+			b = append(b, 'H')
 			for i := at + x; i <= at+end; i++ {
-				if g.Fg[i] != render.None && g.Fg[i] != nowFg {
-					nowFg = g.Fg[i]
-					b.WriteString(render.FgCode(nowFg))
-				}
-				if g.Bg[i] != nowBg {
+				setFg := g.Fg[i] != render.None && g.Fg[i] != nowFg
+				setBg := g.Bg[i] != nowBg
+				if setFg || setBg {
+					// 글자색과 바탕색이 함께 바뀌면 부호 하나로 쓴다
+					b = render.AppendSGR(b, g.Fg[i], g.Bg[i], setFg, setBg)
+					if setFg {
+						nowFg = g.Fg[i]
+					}
 					nowBg = g.Bg[i]
-					b.WriteString(render.BgCode(nowBg))
 				}
 				// 0 은 앞의 두 칸 글자가 덮은 칸이다. 커서는 이미 지나갔다.
 				if g.Ch[i] != render.Covered {
-					b.WriteRune(rune(g.Ch[i]))
+					b = utf8.AppendRune(b, rune(g.Ch[i]))
 				}
 				old.Ch[i], old.Fg[i], old.Bg[i] = g.Ch[i], g.Fg[i], g.Bg[i]
 			}
 			x = end
 		}
 	}
-	if b.Len() == 0 {
+	s.buf = b
+	if len(b) == head {
 		return false
 	}
-	// 한 장을 한꺼번에 보이게 한다(모르는 터미널은 이 부호를 무시한다).
-	// 커서 숨김을 장마다 다시 보내고, 다 쓴 뒤에는 오른쪽 아래 구석에 세워 둔다.
-	io.WriteString(s.out, esc+"?2026h"+esc+"?25l"+b.String()+esc+"0m"+esc+strconv.Itoa(g.Rows)+";"+strconv.Itoa(g.Cols)+"H"+esc+"?2026l")
+	// 다 쓴 뒤에는 커서를 오른쪽 아래 구석에 세워 둔다
+	b = append(b, esc+"0m"+esc...)
+	b = strconv.AppendInt(b, int64(g.Rows), 10)
+	b = append(b, ';')
+	b = strconv.AppendInt(b, int64(g.Cols), 10)
+	b = append(b, "H"+esc+"?2026l"...)
+	if s.Asking {
+		b = append(b, Ask...)
+	}
+	s.buf = b
+	s.out.Write(b)
 	return true
 }
 

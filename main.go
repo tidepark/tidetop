@@ -252,6 +252,11 @@ func parseArgs(argv []string) options {
 }
 
 func main() {
+	// 그리기는 고루틴 하나가 한다. Go 를 스레드 하나로 돌리면 스레드끼리 깨우는 일이 줄어 CPU 를 덜 쓴다
+	// (49x29 칸 high 에서 대략 1.3% → 1.0%). 환경 변수 GOMAXPROCS 를 주면 그것을 따른다
+	if os.Getenv("GOMAXPROCS") == "" {
+		runtime.GOMAXPROCS(1)
+	}
 	if len(os.Args) > 1 && os.Args[1] == "init" {
 		if len(os.Args) < 3 {
 			if korean {
@@ -934,15 +939,16 @@ func (a *app) loop(ctx context.Context, out *os.File) {
 				render.Stamp(g, []string{a.status()}, a.quality == "high", a.color, "bottom-right")
 			}
 			drawn := time.Now()
+			a.screen.Asking = a.answered // 묻는 글은 장과 함께 한 번에 보낸다
 			if a.screen.Draw(g) {
 				a.still = 0
 				if a.answered {
-					io.WriteString(out, term.Ask)
 					a.asked = time.Now()
 				}
 			} else {
 				a.still++
 			}
+			render.Recycle(g) // 화면은 제 판에 옮겨 적었다. 다음 장이 이 판을 다시 쓴다
 			took := time.Since(drawn)
 			// 화면이 멈춰 있는 동안에는 1초에 네 번만 들여다본다
 			wait := time.Duration(1000/a.fps) * time.Millisecond

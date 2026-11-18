@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/tidepark/tidetop/internal/feed"
@@ -46,10 +47,23 @@ type Grid struct {
 	High       bool
 }
 
+// spare 는 Recycle 로 돌려받은 판 하나다. 다음 NewGrid 가 크기가 같으면 비워서 다시 쓴다
+// (장마다 판을 새로 잡지 않는다. 그리기는 한 고루틴에서만 한다).
+var spare *Grid
+
+// Recycle 은 다 쓴 판을 돌려준다. 돌려준 판은 더 읽거나 쓰지 않는다.
+func Recycle(g *Grid) { spare = g }
+
 // NewGrid 는 빈 판을 만든다.
 func NewGrid(cols, rows int) *Grid {
-	n := cols * rows
-	g := &Grid{Cols: cols, Rows: rows, Ch: make([]uint16, n), Fg: make([]int32, n), Bg: make([]int32, n)}
+	g := spare
+	if g != nil && g.Cols == cols && g.Rows == rows {
+		spare = nil
+		g.High = false
+	} else {
+		n := cols * rows
+		g = &Grid{Cols: cols, Rows: rows, Ch: make([]uint16, n), Fg: make([]int32, n), Bg: make([]int32, n)}
+	}
 	for i := range g.Ch {
 		g.Ch[i] = space
 		g.Fg[i] = None
@@ -128,6 +142,38 @@ func FgCode(c int32) string {
 		return fmt.Sprintf("%s%dm", esc, c-Basic)
 	}
 	return fmt.Sprintf("%s38;2;%d;%d;%dm", esc, c>>16, (c>>8)&255, c&255)
+}
+
+// AppendSGR 는 글자색(setFg 일 때)과 바탕색(setBg 일 때)을 부호 하나로 b 에 붙인다.
+// 둘 다 바뀌면 ESC[38;2;r;g;b;48;2;r;g;bm 처럼 묶는다. 장마다 부르므로 문자열을 새로 만들지 않는다.
+func AppendSGR(b []byte, fg, bg int32, setFg, setBg bool) []byte {
+	b = append(b, esc...)
+	if setFg {
+		if fg >= Basic {
+			b = strconv.AppendInt(b, int64(fg-Basic), 10)
+		} else {
+			b = appendRGB(append(b, "38;2;"...), fg)
+		}
+	}
+	if setFg && setBg {
+		b = append(b, ';')
+	}
+	if setBg {
+		if bg == None {
+			b = append(b, "49"...)
+		} else {
+			b = appendRGB(append(b, "48;2;"...), bg)
+		}
+	}
+	return append(b, 'm')
+}
+
+func appendRGB(b []byte, c int32) []byte {
+	b = strconv.AppendInt(b, int64(c>>16), 10)
+	b = append(b, ';')
+	b = strconv.AppendInt(b, int64((c>>8)&255), 10)
+	b = append(b, ';')
+	return strconv.AppendInt(b, int64(c&255), 10)
 }
 
 func BgCode(c int32) string {

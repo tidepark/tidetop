@@ -221,6 +221,10 @@ var (
 	memos  = map[float64][]stillLight{}
 )
 
+// starsMemoKeep 은 셈해 둔 판을 몇 장까지 남기는가다. 한 장이 W×H 라 값마다 다 남기면 메모리를 많이 쓴다
+// (120x40 에서 51장이면 20MB 넘게). 값은 천천히 움직이므로 지금 값 둘레의 몇 장이면 된다.
+const starsMemoKeep = 6
+
 type planetAtT struct{ x, y, r float64 }
 
 type starsCtx struct {
@@ -257,13 +261,26 @@ func (Stars) Frame(in render.Input) render.Ctx {
 	W, H := float64(in.W), float64(in.H)
 	// 멈춘 빛은 값을 1/50 단위로 묶어 셈한다. 값이 조금씩 움직여도 셈해 둔 것을 다시 쓴다.
 	fq := round(f*50) / 50
-	if memoOf != L || len(memos) > 128 {
+	if memoOf != L {
 		memos = map[float64][]stillLight{}
 		memoOf = L
 	}
 	memo, ok := memos[fq]
 	if !ok {
-		memo = make([]stillLight, in.W*in.H)
+		if len(memos) >= starsMemoKeep {
+			// 지금 값에서 가장 먼 판을 비워서 다시 쓴다
+			far := math.NaN()
+			for k := range memos {
+				if math.IsNaN(far) || math.Abs(k-fq) > math.Abs(far-fq) {
+					far = k
+				}
+			}
+			memo = memos[far]
+			delete(memos, far)
+			clear(memo)
+		} else {
+			memo = make([]stillLight, in.W*in.H)
+		}
 		memos[fq] = memo
 	}
 	c := &starsCtx{

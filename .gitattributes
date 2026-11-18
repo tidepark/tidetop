@@ -1,0 +1,5 @@
+# 기준 파일을 윈도우에서도 LF 그대로 받는다
+* text=auto eol=lf
+*.gz binary
+*.png binary
+*.gif binary

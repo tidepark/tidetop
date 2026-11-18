@@ -1,6 +1,7 @@
 package render
 
 import (
+	"image"
 	"math"
 	"strings"
 
@@ -147,8 +148,10 @@ func (c Crop) Frame(in Input) Ctx {
 	big.W, big.H = in.W*c.Across, in.H*c.Down
 	big.Cols, big.Rows = in.Cols*c.Across, in.Rows*c.Down
 	big.GlitchSeed = c.Row*c.Across + c.Col + 1
+	ox, oy := c.Col*in.W, c.Row*in.H
+	big.View = image.Rect(ox, oy, ox+in.W, oy+in.H)
 	inner := c.Scene.Frame(big)
-	x := &cropCtx{inner: inner, ox: c.Col * in.W, oy: c.Row * in.H}
+	x := &cropCtx{inner: inner, ox: ox, oy: oy}
 	if b := inner.Box(); b != nil {
 		x.box = &Box{b.X0 - float64(x.ox), b.X1 - float64(x.ox), b.Y0 - float64(x.oy), b.Y1 - float64(x.oy)}
 	}

@@ -46,6 +46,7 @@ package scenes
 // 곱셈과 덧셈이 한 번에 묶이지(FMA) 않게 한다.
 
 import (
+	"image"
 	"math"
 
 	"github.com/tidepark/tidetop/internal/glitch"
@@ -417,8 +418,12 @@ type libLayout struct {
 	shape, lampShape                     []float64
 	slots                                int
 	base                                 *libBase
-	route                                []libSeg
-	routeTotal                           float64
+	// 책과 빛을 입힐 때 다시 쓰는 판. 값이 바뀔 때마다 새로 잡지 않는다
+	work       *libSheet
+	vb, col    []float64
+	now        []int32 // 이번 장의 책 자리 표
+	route      []libSeg
+	routeTotal float64
 	// 장마다 얹는 점(촛불, 사람). 같은 장 안에서만 쓰는 표(stamp)로 지운다.
 	ovStamp []int32
 	ovZ     []uint8
@@ -826,7 +831,11 @@ func libLightUp(col rgb, v float64, gray bool) rgb {
 // 책 자리마다 지금의 모습: 꽂혀 있으면 몇 번째로 돌아온 책인지, 비어 있으면 -1
 func (L *libLayout) shelfState(f, t float64) []int32 {
 	open := math.Min(f, 1-libAway)
-	out := make([]int32, L.slots)
+	// 장마다 새로 잡지 않고 다시 쓴다. 바탕 판(base)은 제 몫으로 베껴 둔다
+	if len(L.now) != L.slots {
+		L.now = make([]int32, L.slots)
+	}
+	out := L.now
 	i := 0
 	for _, row := range L.rows {
 		for _, s := range row.slots {
@@ -856,6 +865,7 @@ func libSameState(a, b []int32) bool {
 
 // 책과 빛을 입힌 판
 type libBase struct {
+	view        image.Rectangle
 	mood        string
 	fq, overq   float64
 	lit         int
@@ -866,22 +876,42 @@ type libBase struct {
 
 // 책, 쌓인 책, 빛을 입힌 판. 열쇠와 책 자리가 같으면 앞의 것을 다시 쓴다.
 func (L *libLayout) baseOf(c *libCtx) *libBase {
-	if b := L.base; b != nil && b.mood == c.mood && b.fq == c.fq && b.overq == c.overq && b.lit == c.lit && libSameState(b.state, c.state) {
+	if b := L.base; b != nil && b.view == c.view && b.mood == c.mood && b.fq == c.fq && b.overq == c.overq && b.lit == c.lit && libSameState(b.state, c.state) {
 		return b
 	}
-	n := L.W * L.H
-	g := &libSheet{W: L.W, H: L.H, col: append([]float64(nil), L.g.col...), z: append([]uint8(nil), L.g.z...),
-		ch: append([]uint8(nil), L.g.ch...), tone: append([]uint8(nil), L.g.tone...)}
+	if L.work == nil {
+		L.work = newLibSheet(L.W, L.H)
+		L.vb = make([]float64, L.W*L.H)
+		L.col = make([]float64, L.W*L.H*3)
+		L.base = &libBase{}
+	}
+	// 이 창이 그리는 범위만 바탕 판에서 옮겨 오고 빛도 그 범위만 셈한다.
+	// 범위 밖은 앞의 내용이 남아 있지만 읽지 않는다(칠하기와 빛은 그 점 자리 하나만 읽는다)
+	v := c.view
+	g := L.work
+	for y := v.Min.Y; y < v.Max.Y; y++ {
+		a, e := y*L.W+v.Min.X, y*L.W+v.Max.X
+		copy(g.col[a*3:e*3], L.g.col[a*3:e*3])
+		copy(g.z[a:e], L.g.z[a:e])
+		copy(g.ch[a:e], L.g.ch[a:e])
+		copy(g.tone[a:e], L.g.tone[a:e])
+	}
 
 	// 책: 오른쪽 빈틈 너머의 책(없으면 칸의 옆판)에 윗머리가 닿을 때만 그쪽으로 기운다
 	i := 0
 	for _, row := range L.rows {
 		here := c.state[i : i+len(row.slots)]
 		i += len(row.slots)
+		if row.base < v.Min.Y || row.base-4 >= v.Max.Y {
+			continue // 이 창이 그리지 않는 줄. 책은 밑동부터 다섯 점 안에 있다
+		}
 		for k, s := range row.slots {
 			gen := here[k]
 			if gen < 0 {
 				continue
+			}
+			if x := row.x + s.x; x+s.w+2 < v.Min.X || x >= v.Max.X {
+				continue // 이 창이 그리지 않는 자리. 기울어도 두 점 안이다
 			}
 			if s.stack {
 				libPaintStack(g, row.x+s.x, row.base, s.w, s.id, gen)
@@ -984,10 +1014,9 @@ func (L *libLayout) baseOf(c *libCtx) *libBase {
 		lamp = 0.8
 	}
 	gray := c.mood == "fault"
-	vb := make([]float64, n)
-	col := make([]float64, n*3)
-	for y := 0; y < L.H; y++ {
-		for x := 0; x < L.W; x++ {
+	vb, col := L.vb, L.col
+	for y := v.Min.Y; y < v.Max.Y; y++ {
+		for x := v.Min.X; x < v.Max.X; x++ {
 			p := y*L.W + x
 			v := amb + float64(0.95*glow*L.shape[p])
 			if lamp != 0 {
@@ -1033,7 +1062,7 @@ func (L *libLayout) baseOf(c *libCtx) *libBase {
 			add(L.deskX+4+dx, L.floorTop-3, 50, 36, 10)
 		}
 	}
-	L.base = &libBase{mood: c.mood, fq: c.fq, overq: c.overq, lit: c.lit, state: c.state, col: col, vb: vb, z: g.z, ch: g.ch, tone: g.tone}
+	*L.base = libBase{view: v, mood: c.mood, fq: c.fq, overq: c.overq, lit: c.lit, state: append(L.base.state[:0], c.state...), col: col, vb: vb, z: g.z, ch: g.ch, tone: g.tone}
 	return L.base
 }
 
@@ -1154,6 +1183,7 @@ type libCtx struct {
 	glitch    []glitch.Line
 	base      *libBase
 	stamp     int32
+	view      image.Rectangle // 그리는 범위(점 단위)
 }
 
 func (c *libCtx) Glitch() []glitch.Line { return c.glitch }
@@ -1238,6 +1268,10 @@ func (Library) Frame(in render.Input) render.Ctx {
 		fq:    round(f*50) / 50,
 		overq: round(over*20) / 20,
 		state: L.shelfState(f, t),
+		view:  in.View.Intersect(image.Rect(0, 0, in.W, in.H)),
+	}
+	if c.view.Empty() {
+		c.view = image.Rect(0, 0, in.W, in.H)
 	}
 	if mood == "live" {
 		c.glitch = glitch.Make(smooth(0, 0.1, or0(v.Under)), in.W, in.H, t, in.GlitchSeed)
@@ -1381,7 +1415,13 @@ func (c *libCtx) Dots(add render.Dot) {
 		fj := float64(j)
 		sp := 0.3 + float64(rnd(fj, 71)*0.4)
 		y := mod(float64(rnd(fj, 72)*span)+float64(c.t*sp), span) + float64(L.chY+4)
+		if y < float64(c.view.Min.Y-1) || y >= float64(c.view.Max.Y+1) {
+			continue // 이 창이 그리지 않는 곳
+		}
 		x := L.lightX + float64((rnd(fj, 73)-0.5)*fH*1.1) + float64(math.Sin(float64(c.t*0.4)+fj)*1.2)
+		if x < float64(c.view.Min.X-1) || x >= float64(c.view.Max.X+1) {
+			continue
+		}
 		tw := math.Sin(float64(c.t*(1+rnd(fj, 74))) + float64(fj*2.1))
 		if tw < -0.2 {
 			continue

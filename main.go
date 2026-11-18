@@ -68,7 +68,7 @@ const helpKo = `tidetop — 터미널에서 도는 tidepic 장면
   -t, --top            여유가 문턱 아래로 이어지면 tidetop 을 닫고 top 을 띄운다. 돌아오지 않는다
   -m, --top-below <%>  -t 의 문턱. 보고 있는 여유(%, CPU 또는 메모리) 가 이 값 이하이면 (기본 20)
   -d, --top-after <초> -t 가 기다리는 시간. 문턱 아래가 이만큼 이어지면 넘어간다 (기본 5, 0 이면 바로)
-  --grid <가로>x<세로> 여러 창을 이어 붙여 그림 하나를 만든다. 큰 그림을 이만큼 조각으로 나눈다 (grove, stars)
+  --grid <가로>x<세로> 여러 창을 이어 붙여 그림 하나를 만든다. 큰 그림을 이만큼 조각으로 나눈다 (grove, stars, library)
   --pos <번호>         이 창이 그릴 조각. 왼쪽 위부터 1, 2, … (2x2 이면 1 2 / 3 4)
   --once               한 장만 찍고 끝낸다
   --help               이 글
@@ -99,7 +99,7 @@ Usage: tidetop [options]
   -t, --top            close tidetop and open top when headroom stays below a line. It does not come back
   -m, --top-below <%>  the line for -t: the headroom shown (%, CPU or memory) at or below this (default 20)
   -d, --top-after <s>  how long -t waits below the line before switching (default 5, 0 switches at once)
-  --grid <a>x<d>       join several windows into one picture, split into a x d pieces (grove, stars)
+  --grid <a>x<d>       join several windows into one picture, split into a x d pieces (grove, stars, library)
   --pos <n>            the piece this window draws, from the top left: 1, 2, ... (2x2 is 1 2 / 3 4)
   --once               print one frame and exit
   --help               this text
@@ -207,8 +207,8 @@ func parseArgs(argv []string) options {
 		if !(o.pos == math.Trunc(o.pos) && o.pos >= 1 && o.pos <= float64(a*d)) {
 			fail(fmt.Sprintf("--pos 는 1~%d 이다", a*d))
 		}
-		if o.art != "" || (o.scene != "grove" && o.scene != "stars") {
-			fail("--grid 는 grove 와 stars 에서만 쓴다")
+		if o.art != "" || (o.scene != "grove" && o.scene != "stars" && o.scene != "library") {
+			fail("--grid 는 grove, stars, library 에서만 쓴다")
 		}
 	}
 	if o.mem && o.data != "" {

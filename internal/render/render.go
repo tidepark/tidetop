@@ -15,6 +15,7 @@ package render
 
 import (
 	"fmt"
+	"image"
 	"math"
 	"strings"
 
@@ -74,6 +75,9 @@ type Input struct {
 	Skin       string
 	W, H       int // 점 단위의 크기. 그리기가 채운다
 	GlitchSeed int
+	// View 는 이 창이 그리는 범위(점 단위)다. 이어 붙인 창의 조각일 때만 Crop 이 정하고, 비어 있으면 전체다.
+	// 장면은 이 밖을 셈하지 않아도 된다(읽지 않는다).
+	View image.Rectangle
 }
 
 // Ctx 는 장면이 한 장을 그리려고 셈해 둔 것이다.
@@ -103,7 +107,16 @@ func q(x float64) int32 {
 	if x < 0 {
 		return 0
 	}
-	return int32(math.Min(255, noise.Round(x/4)*4))
+	// min(255, Round(x/4)*4) 와 같다. 점마다 세 번 부르므로 일반 반올림과 Min 을 거치지 않는다
+	y := x / 4
+	r := math.Floor(y)
+	if y-r >= 0.5 {
+		r++
+	}
+	if r >= 64 {
+		return 255
+	}
+	return int32(r) * 4
 }
 
 // Pack 은 색을 정수 하나로 묶는다.
@@ -149,9 +162,21 @@ type dotLayer struct {
 	over   []uint8
 }
 
+// dotBuf 는 빛 점 판이다. 장마다 새로 잡지 않고 비워서 다시 쓴다(그리기는 한 고루틴에서만 한다).
+var dotBuf dotLayer
+
 func collectDots(ctx Ctx, cols, rows int) dotLayer {
 	n := cols * rows
-	d := dotLayer{make([]uint8, n), make([]noise.RGB, n), make([]float32, n), make([]uint8, n)}
+	d := &dotBuf
+	if cap(d.mask) < n {
+		*d = dotLayer{make([]uint8, n), make([]noise.RGB, n), make([]float32, n), make([]uint8, n)}
+	} else {
+		d.mask, d.color, d.weight, d.over = d.mask[:n], d.color[:n], d.weight[:n], d.over[:n]
+		clear(d.mask)
+		clear(d.color)
+		clear(d.weight)
+		clear(d.over)
+	}
 	ctx.Dots(func(x, y float64, c noise.RGB, w float64, onTop bool) {
 		bx := int(math.Floor(x * 2))
 		by := int(math.Floor(y * 2))
@@ -169,7 +194,7 @@ func collectDots(ctx Ctx, cols, rows int) dotLayer {
 			d.color[i] = c
 		}
 	})
-	return d
+	return *d
 }
 
 func gridHigh(ctx Ctx, in Input) *Grid {

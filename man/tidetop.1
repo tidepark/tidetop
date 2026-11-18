@@ -23,9 +23,10 @@ it reads a tidepic feed from a file or an https URL.
 Values are checked and computed by the tidepic runtime before a scene sees them.
 .PP
 The scenes
-.B grove
-and
+.BR grove ,
 .B stars
+and
+.B library
 read
 .I headroom
 (100 minus CPU use), so they draw less when the computer is busy.
@@ -41,6 +42,12 @@ Tight: bare branches and dry ground, still. Skins:
 .B night
 (default) and
 .BR day .
+.TP
+.B library
+Headroom. A two-storey library. Roomy: full shelves in golden candlelight, three readers,
+and a person who walks from the desk to the ladder, up the stairs and back.
+Tight: fewer books and dimmer light. At zero the shelves are empty in dark blue light and nothing moves.
+Each book is lent out and comes back once an hour, so now and then a book leaves and another returns.
 .TP
 .B stars
 Headroom. Roomy: a clear sky, the Milky Way, twinkling stars, meteors, an aurora near the top.
@@ -60,6 +67,7 @@ One lit window per CPU core.
 Scene to show:
 .BR grove ,
 .BR stars ,
+.BR library ,
 .BR campfire ,
 .BR tide ,
 .BR windows .
@@ -109,7 +117,7 @@ Frames per second, 1 to 60. Default 15 for high (8 over SSH), 2 for low.
 .TP
 .BR \-M ", " \-\-mem
 Start on memory instead of CPU. Only for scenes that read one value
-(campfire, grove, stars, text pictures). Same as key
+(campfire, grove, stars, library, text pictures). Same as key
 .BR m .
 .TP
 .BR \-t ", " \-\-top
@@ -157,7 +165,7 @@ Print the version.
 Keys are not case-sensitive.
 .TP
 .BR Tab ", " n
-Next scene: grove, stars, campfire, tide, windows. The value the scene reads is read again at once.
+Next scene: grove, stars, library, campfire, tide, windows. The value the scene reads is read again at once.
 Not with
 .B \-\-art
 or in a joined window.

@@ -26,9 +26,9 @@ import (
 )
 
 var registry = map[string]render.Scene{
-	"campfire": scenes.Campfire{}, "grove": scenes.Grove{}, "stars": scenes.Stars{}, "tide": scenes.Tide{}, "windows": scenes.Windows{},
+	"campfire": scenes.Campfire{}, "grove": scenes.Grove{}, "library": scenes.Library{}, "stars": scenes.Stars{}, "tide": scenes.Tide{}, "windows": scenes.Windows{},
 }
-var sceneNames = []string{"grove", "stars", "campfire", "tide", "windows"}
+var sceneNames = []string{"grove", "stars", "library", "campfire", "tide", "windows"}
 
 const defaultScene = "grove"
 
@@ -36,8 +36,8 @@ const defaultScene = "grove"
 var version = "dev"
 
 // Tab, n 으로 넘기는 순서와 이름
-var sceneOrder = []string{"grove", "stars", "campfire", "tide", "windows"}
-var sceneTitles = map[string]string{"grove": "숲", "stars": "별하늘", "campfire": "모닥불", "tide": "물결", "windows": "불 켜진 창"}
+var sceneOrder = []string{"grove", "stars", "library", "campfire", "tide", "windows"}
+var sceneTitles = map[string]string{"grove": "숲", "stars": "별하늘", "library": "도서관", "campfire": "모닥불", "tide": "물결", "windows": "불 켜진 창"}
 
 var korean = regexp.MustCompile(`(?i)^ko`).MatchString(firstEnv("LC_ALL", "LC_MESSAGES", "LANG"))
 

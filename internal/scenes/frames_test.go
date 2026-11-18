@@ -67,7 +67,7 @@ func cells(lines []string) [][]cell {
 	return out
 }
 
-var registry = map[string]render.Scene{"campfire": Campfire{}, "tide": Tide{}, "windows": Windows{}, "grove": Grove{}, "stars": Stars{}}
+var registry = map[string]render.Scene{"campfire": Campfire{}, "tide": Tide{}, "windows": Windows{}, "grove": Grove{}, "stars": Stars{}, "library": Library{}}
 
 func loadFrames(t *testing.T) []frameCase {
 	f, err := os.Open("../../testdata/frames.json.gz")

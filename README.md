@@ -61,12 +61,13 @@ Press `h` for keys and `q` to quit. `tidetop --help` lists every option; `man ti
 
 ## Scenes
 
-The grove and the night sky read **headroom**: 100 minus CPU use. They grow fuller when the computer has room and sparser when it is busy, so they draw less when the computer is busy. When headroom falls below 10%, thin lines flicker across the scene like a faulty monitor.
+The grove, the night sky and the library read **headroom**: 100 minus CPU use. They grow fuller when the computer has room and sparser when it is busy, so they draw less when the computer is busy. When headroom falls below 10%, thin lines flicker across the scene like a faulty monitor.
 
 | Scene | Reads | Roomy | Tight |
 |---|---|---|---|
 | `grove` (default) | headroom | leaves, green ground, a full pond, a waterfall | bare branches, dry ground |
 | `stars` | headroom | a clear sky, the Milky Way, twinkling stars, meteors | clouds over a dark sky |
+| `library` | headroom | full shelves in golden candlelight, three readers, a person on the ladder and stairs | empty shelves in dark blue light |
 | `campfire` | CPU use | embers | a large fire |
 | `tide` | memory and CPU | low, calm water | high, rough water |
 | `windows` | each CPU core | dark windows | bright windows |

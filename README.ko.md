@@ -76,6 +76,14 @@ tidetop --demo             # 40초마다 오르내리는 흉내 값
 |---|---|
 | ![별하늘](media/single-stars.gif) | ![별하늘 2×2](media/grid-stars.gif) |
 
+여유 0, 30, 60, 100 의 도서관. 읽는 사람은 20, 45, 70 에서 한 명씩 자리에 앉고, 10 아래에서는 주의 줄이 나온다.
+
+| 0 | 30 |
+|---|---|
+| ![여유 0 의 도서관](media/single-library-0.png) | ![여유 30 의 도서관](media/single-library-30.png) |
+| **60** | **100** |
+| ![여유 60 의 도서관](media/single-library-60.png) | ![여유 100 의 도서관](media/single-library-100.png) |
+
 스킨: `grove`는 `night`(기본)와 `day`, `stars`는 `milkyway`(기본)와 `galaxy`. `z`로 바꾼다.
 
 ## 키

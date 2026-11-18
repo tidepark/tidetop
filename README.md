@@ -76,6 +76,14 @@ The grove, the night sky and the library read **headroom**: 100 minus CPU use. T
 |---|---|
 | ![stars](media/single-stars.gif) | ![stars 2x2](media/grid-stars.gif) |
 
+The library at headroom 0, 30, 60 and 100. A reader takes a seat at 20, 45 and 70; below 10 the caution lines appear.
+
+| 0 | 30 |
+|---|---|
+| ![library at 0](media/single-library-0.png) | ![library at 30](media/single-library-30.png) |
+| **60** | **100** |
+| ![library at 60](media/single-library-60.png) | ![library at 100](media/single-library-100.png) |
+
 Skins: `grove` has `night` (default) and `day`; `stars` has `milkyway` (default) and `galaxy`. Press `z` to switch.
 
 ## Keys

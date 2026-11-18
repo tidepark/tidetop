@@ -409,7 +409,8 @@ func (a *app) poll(ctx context.Context) {
 func (a *app) apply(r feed.Result) {
 	if r.OK {
 		a.target = feed.Compute(r.Feed)
-		a.stale = false
+		// 파일 피드가 오래 그대로면 값은 받되 끊김으로 덮는다
+		a.stale = r.Code == "old"
 	} else {
 		a.problem = r.Error
 		a.stale = true
@@ -498,6 +499,10 @@ func (a *app) status() string {
 		label := "value"
 		if korean {
 			label = "값"
+		}
+		if d, ok := a.src.(*source.Data); ok && a.stale && d.Old() > 0 {
+			secs := int(d.Old().Seconds())
+			name += " | " + a.say(fmt.Sprintf("파일이 %d초째 그대로", secs), fmt.Sprintf("file unchanged for %ds", secs))
 		}
 		return fmt.Sprintf("[%s %s | %s]", label, v, name)
 	}

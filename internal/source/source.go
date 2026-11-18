@@ -226,7 +226,16 @@ type Data struct {
 	remote bool
 	every  time.Duration
 	client *http.Client
+	age    time.Duration // 끊김으로 본 파일이 그대로 있은 시간. 끊김이 아니면 0
+	now    func() time.Time
 }
+
+// StaleAfter 는 파일 피드를 끊김으로 보기까지 meta.ttl 의 몇 배를 기다리는가다.
+// 브라우저 런타임이 세 번 잇달아 못 받으면 끊김으로 알리는 것(STALE_AFTER)에 맞춘다.
+const StaleAfter = 3
+
+// Old 는 파일 피드가 끊김으로 보인 까닭(그대로 있은 시간)이다. 끊김이 아니면 0 이다.
+func (d *Data) Old() time.Duration { return d.age }
 
 // NewData 는 파일 경로나 https 주소를 받는다. 다른 주소는 받지 않는다.
 func NewData(target string) (*Data, error) {
@@ -249,11 +258,32 @@ func (d *Data) Floor() time.Duration {
 
 func (d *Data) Next(ctx context.Context) feed.Result {
 	if !d.remote {
+		info, err := os.Stat(d.target)
+		if err != nil {
+			return feed.Result{Error: err.Error(), Code: "read"}
+		}
 		text, err := os.ReadFile(d.target)
 		if err != nil {
 			return feed.Result{Error: err.Error(), Code: "read"}
 		}
-		return feed.Parse(text)
+		r := feed.Parse(text)
+		// 쓰던 쪽이 멈추면 파일은 마지막 내용으로 남는다. meta.ttl 을 적은 피드는
+		// 파일이 ttl 의 세 배보다 오래 그대로면 끊김으로 본다. 값은 그대로 넘기고 Code 만 "old" 로 단다.
+		// ttl 이 없는 파일(손으로 써 둔 고정 파일 같은)은 나이를 보지 않는다.
+		d.age = 0
+		if r.OK && r.Feed.Meta != nil && r.Feed.Meta.TTL != nil && *r.Feed.Meta.TTL > 0 {
+			now := time.Now
+			if d.now != nil {
+				now = d.now
+			}
+			age := now().Sub(info.ModTime())
+			if age > time.Duration(StaleAfter*(*r.Feed.Meta.TTL)*float64(time.Second)) {
+				d.age = age
+				r.Code = "old"
+				r.Error = fmt.Sprintf("파일이 %d초째 그대로다", int(age.Seconds()))
+			}
+		}
+		return r
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, d.target, nil)
 	if err != nil {

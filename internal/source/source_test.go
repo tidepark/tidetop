@@ -2,6 +2,8 @@ package source
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -55,4 +57,47 @@ func TestEase(t *testing.T) {
 
 func Demo2(v float64) *feed.Feed {
 	return feed.Validate(map[string]any{"spec": 1.0, "values": []any{map[string]any{"value": v, "to": 1.0}}}).Feed
+}
+
+// 파일 피드: meta.ttl 이 있고 파일이 ttl 의 세 배보다 오래 그대로면 끊김(old), 아니면 그대로
+func TestFileFeedGoesStaleWhenOld(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, text string, age time.Duration) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		at := time.Now().Add(-age)
+		if err := os.Chtimes(p, at, at); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	withTTL := `{"spec":1,"values":[{"value":42,"to":100}],"meta":{"ttl":5}}`
+	noTTL := `{"spec":1,"values":[{"value":42,"to":100}]}`
+	cases := []struct {
+		name, text string
+		age        time.Duration
+		old        bool
+	}{
+		{"ttl-old.json", withTTL, 16 * time.Second, true},
+		{"ttl-new.json", withTTL, 14 * time.Second, false},
+		{"plain-old.json", noTTL, 24 * time.Hour, false},
+	}
+	for _, c := range cases {
+		d, err := NewData(write(c.name, c.text, c.age))
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := d.Next(context.Background())
+		if !r.OK {
+			t.Fatalf("%s: 값을 읽지 못함: %s", c.name, r.Error)
+		}
+		if got := r.Code == "old"; got != c.old {
+			t.Errorf("%s: 끊김 %v, 바란 것 %v", c.name, got, c.old)
+		}
+		if got := d.Old() > 0; got != c.old {
+			t.Errorf("%s: Old() %v", c.name, d.Old())
+		}
+	}
 }

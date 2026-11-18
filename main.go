@@ -62,7 +62,7 @@ const helpKo = `tidetop — 터미널에서 도는 tidepic 장면
   --demo               실제 수치 대신 40초마다 오르내리는 흉내 값을 쓴다
   --skin <이름>        장면의 겉모습. grove: night(기본), day. stars: milkyway(기본), galaxy
   --quality low|high   high: 24비트 색과 UTF-8, low: ASCII. 없으면 터미널을 보고 고른다.
-  --fps <수>           1초에 그릴 장 수 (기본 high 15, low 2)
+  --fps <수>           1초에 그릴 장 수 (기본 high 15, SSH 너머 8, low 2)
   -M, --mem            메모리 기준으로 시작한다(값 하나를 읽는 장면). 키 m 과 같다
   -t, --top            여유가 문턱 아래로 이어지면 tidetop 을 닫고 top 을 띄운다. 돌아오지 않는다
   -m, --top-below <%>  -t 의 문턱. 보고 있는 여유(%, CPU 또는 메모리) 가 이 값 이하이면 (기본 20)
@@ -93,7 +93,7 @@ Usage: tidetop [options]
   --demo               use a pretend value that rises and falls every 40 seconds
   --skin <name>        the scene's look. grove: night (default), day. stars: milkyway (default), galaxy
   --quality low|high   high: 24-bit color and UTF-8, low: ASCII. Picked from the terminal if omitted.
-  --fps <n>            frames per second (default 15 for high, 2 for low)
+  --fps <n>            frames per second (default 15 for high, 8 over SSH, 2 for low)
   -M, --mem            start on memory instead of CPU (scenes that read one value). Same as key m
   -t, --top            close tidetop and open top when headroom stays below a line. It does not come back
   -m, --top-below <%>  the line for -t: the headroom shown (%, CPU or memory) at or below this (default 20)
@@ -289,6 +289,7 @@ type app struct {
 	quality  string
 	color    bool
 	fps      float64
+	remote   bool
 	skin     string
 	target   []feed.Computed
 	shown    []feed.Computed
@@ -336,10 +337,14 @@ func run(o options) {
 	}
 	a.color = a.quality == "high" || found.Color
 	a.fps = o.fps
+	a.remote = found.Remote
 	if !o.fpsSet {
 		a.fps = 2
 		if a.quality == "high" {
 			a.fps = 15
+			if a.remote {
+				a.fps = 8 // 화면이 네트워크를 건너가면 덜 보낸다
+			}
 		}
 	}
 	switch {
@@ -786,6 +791,11 @@ func (a *app) watchTop() {
 
 func (a *app) loop(ctx context.Context, out *os.File) {
 	a.screen = term.NewScreen(out)
+	// 색이 한 단계만 바뀐 칸은 다시 쓰지 않는다. SSH 너머에서는 두 단계까지
+	a.screen.Tol = 4
+	if a.remote {
+		a.screen.Tol = 8
+	}
 	restore, _ := term.Raw(os.Stdin)
 	a.restore = restore
 	signals := make(chan os.Signal, 1)
@@ -861,16 +871,20 @@ func (a *app) loop(ctx context.Context, out *os.File) {
 			if a.statusOn {
 				render.Stamp(g, []string{a.status()}, a.quality == "high", a.color, "bottom-right")
 			}
+			drawn := time.Now()
 			if a.screen.Draw(g) {
 				a.still = 0
 			} else {
 				a.still++
 			}
+			took := time.Since(drawn)
 			// 화면이 멈춰 있는 동안에는 1초에 네 번만 들여다본다
 			wait := time.Duration(1000/a.fps) * time.Millisecond
 			if float64(a.still) > a.fps/2 {
 				wait = max(250*time.Millisecond, wait)
 			}
+			// 쓰는 데 오래 걸렸으면 터미널이나 네트워크가 밀린 것이다. 그 두 배는 쉰다
+			wait = max(wait, min(2*took, 2*time.Second))
 			tick.Reset(wait)
 		}
 	}

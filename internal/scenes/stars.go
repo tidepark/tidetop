@@ -37,13 +37,15 @@ var (
 )
 
 const (
-	auroraCut = 0.1 // 이보다 옅은 오로라는 그리지 않는다
-	bandCut   = 0.2 // 은하수도 이보다 옅으면 그리지 않는다
-	fly       = 70  // 유성의 빠르기 (점/초)
-	sparkLife = 0.9 // 별 하나가 반짝 빛나는 동안 (초)
-	gTilt     = -0.42
-	gFlat     = 0.48
-	gWind     = 2.4
+	auroraCut  = 0.1 // 이보다 옅은 오로라는 그리지 않는다
+	auroraRay  = 0.5 // 글자 그림: 이보다 짙으면 | 로 긋는다
+	auroraGlow = 0.3 // 글자 그림: 이보다 짙으면 ! 로 찍는다. 더 옅으면 비운다
+	bandCut    = 0.2 // 은하수도 이보다 옅으면 그리지 않는다
+	fly        = 70  // 유성의 빠르기 (점/초)
+	sparkLife  = 0.9 // 별 하나가 반짝 빛나는 동안 (초)
+	gTilt      = -0.42
+	gFlat      = 0.48
+	gWind      = 2.4
 )
 
 type Stars struct{}
@@ -591,12 +593,31 @@ func (c *starsCtx) Dots(add render.Dot) {
 }
 
 func (c *starsCtx) Glyph(cx, cy int) (rune, string, bool) {
-	_, kind, ok := c.light(cx, cy*2)
+	y := cy * 2
+	_, kind, ok := c.light(cx, y)
 	if !ok {
-		_, kind, ok = c.light(cx, cy*2+1)
+		y++
+		_, kind, ok = c.light(cx, y)
 	}
 	if !ok {
 		return 0, "", false
+	}
+	// 글자 그림의 오로라는 짙은 빛줄기만 긋는다. 옅은 곳은 밑의 하늘을 보인다
+	ray := ' '
+	if kind == "aurora" {
+		a, _, _ := c.auroraAt(float64(cx), float64(y))
+		switch {
+		case a >= auroraRay:
+			ray = '|'
+		case a >= auroraGlow:
+			ray = '!'
+		default:
+			m := c.memo[y*c.W+cx]
+			if !m.ok {
+				return 0, "", false
+			}
+			kind = m.kind
+		}
 	}
 	tone := ""
 	if c.mood == "fault" {
@@ -622,7 +643,7 @@ func (c *starsCtx) Glyph(cx, cy int) (rune, string, bool) {
 	case "sky":
 		return 0, "", false
 	case "aurora":
-		return '|', or("green"), true
+		return ray, or("green"), true
 	case "bright":
 		return ':', or("bright"), true
 	}

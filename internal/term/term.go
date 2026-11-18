@@ -19,6 +19,7 @@ const esc = "\x1b["
 type Ability struct {
 	Quality string // "high" 또는 "low"
 	Color   bool
+	Remote  bool // SSH 로 들어온 터미널이다. 화면이 네트워크를 건너간다
 }
 
 var utf8Locale = regexp.MustCompile(`(?i)utf-?8`)
@@ -29,8 +30,9 @@ func IsTerminal(f *os.File) bool { return xterm.IsTerminal(int(f.Fd())) }
 
 // Detect: 24비트 색과 UTF-8 이 되면 high, 아니면 low. 색을 못 쓰거나 NO_COLOR 이면 단색이다.
 func Detect(out *os.File) Ability {
+	remote := os.Getenv("SSH_CONNECTION") != "" || os.Getenv("SSH_TTY") != ""
 	if os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb" || !IsTerminal(out) {
-		return Ability{"low", false}
+		return Ability{"low", false, remote}
 	}
 	enableVirtual(out)
 	depth := 4
@@ -52,7 +54,7 @@ func Detect(out *os.File) Ability {
 	if truecolor && utf8 {
 		q = "high"
 	}
-	return Ability{q, depth >= 4}
+	return Ability{q, depth >= 4, remote}
 }
 
 func firstSet(names ...string) string {
@@ -82,9 +84,12 @@ func envInt(name string, def int) int {
 
 // Screen 은 대체 화면이다. 앞 장과 달라진 칸만 다시 쓴다.
 type Screen struct {
-	out      io.Writer
-	previous *render.Grid
-	open     bool
+	out   io.Writer
+	shown *render.Grid // 지금 화면에 실제로 적혀 있는 것
+	open  bool
+	// Tol 은 다시 쓰지 않고 넘기는 색 차이다(빨강·초록·파랑 가운데 가장 큰 차이).
+	// 글자가 같고 색이 이만큼 안에서만 바뀐 칸은 그대로 둔다. 화면의 색은 Tol 넘게 어긋나지 않는다.
+	Tol int32
 }
 
 func NewScreen(out io.Writer) *Screen { return &Screen{out: out} }
@@ -104,18 +109,22 @@ func (s *Screen) Close() {
 }
 
 func (s *Screen) Clear() {
-	s.previous = nil
+	s.shown = nil
 	io.WriteString(s.out, esc+"0m"+esc+"2J")
 }
 
 // Draw 는 앞 장과 달라진 칸만 다시 쓴다. 쓴 것이 있으면 true 다.
 func (s *Screen) Draw(g *render.Grid) bool {
-	old := s.previous
-	if old != nil && (old.Cols != g.Cols || old.Rows != g.Rows) {
-		old = nil
+	old := s.shown
+	if old == nil || old.Cols != g.Cols || old.Rows != g.Rows {
+		old = render.NewGrid(g.Cols, g.Rows)
+		for i := range old.Ch { // 처음에는 모든 칸을 쓴다
+			old.Ch[i] = 0xffff
+		}
+		s.shown = old
 	}
 	differs := func(i int) bool {
-		return old == nil || g.Ch[i] != old.Ch[i] || g.Fg[i] != old.Fg[i] || g.Bg[i] != old.Bg[i]
+		return g.Ch[i] != old.Ch[i] || !near(g.Fg[i], old.Fg[i], s.Tol) || !near(g.Bg[i], old.Bg[i], s.Tol)
 	}
 	var b strings.Builder
 	nowFg, nowBg := render.None, render.None
@@ -146,17 +155,34 @@ func (s *Screen) Draw(g *render.Grid) bool {
 				if g.Ch[i] != render.Covered {
 					b.WriteRune(rune(g.Ch[i]))
 				}
+				old.Ch[i], old.Fg[i], old.Bg[i] = g.Ch[i], g.Fg[i], g.Bg[i]
 			}
 			x = end
 		}
 	}
-	s.previous = g
 	if b.Len() == 0 {
 		return false
 	}
 	// 한 장을 한꺼번에 보이게 한다(모르는 터미널은 이 부호를 무시한다).
 	// 커서 숨김을 장마다 다시 보내고, 다 쓴 뒤에는 오른쪽 아래 구석에 세워 둔다.
 	io.WriteString(s.out, esc+"?2026h"+esc+"?25l"+b.String()+esc+"0m"+esc+strconv.Itoa(g.Rows)+";"+strconv.Itoa(g.Cols)+"H"+esc+"?2026l")
+	return true
+}
+
+// near: 두 색이 tol 안에서 같은가. 색이 없거나 기본 색이면 똑같아야 한다.
+func near(a, b, tol int32) bool {
+	if a == b {
+		return true
+	}
+	if tol <= 0 || a < 0 || b < 0 || a >= render.Basic || b >= render.Basic {
+		return false
+	}
+	for sh := 0; sh < 24; sh += 8 {
+		d := (a>>sh)&255 - (b>>sh)&255
+		if d > tol || d < -tol {
+			return false
+		}
+	}
 	return true
 }
 

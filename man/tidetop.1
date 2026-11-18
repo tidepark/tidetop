@@ -95,7 +95,7 @@ uses half blocks and Braille dots with 24-bit colour and needs UTF-8.
 uses ASCII and up to eight colours. Picked from the terminal if omitted.
 .TP
 .BI \-\-fps " n"
-Frames per second, 1 to 60. Default 15 for high, 2 for low.
+Frames per second, 1 to 60. Default 15 for high (8 over SSH), 2 for low.
 .TP
 .BR \-M ", " \-\-mem
 Start on memory instead of CPU. Only for scenes that read one value
@@ -233,6 +233,9 @@ tidetop writes only the cells that changed, looks four times a second while the
 screen is still, and draws 15 frames a second by default. On an M-series Mac at
 120\(mu40 cells it used about 0.3\(en3% of one core and 13\(en16MB of memory
 (started directly; through npm, Node stays running beside it).
+Cells whose colour moved by only a step or two are not rewritten.
+Over SSH it draws fewer frames, and when writing a frame takes long it waits
+that much longer, so keys are not held up behind queued output.
 Lower
 .B \-\-fps
 or use

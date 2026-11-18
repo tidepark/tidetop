@@ -234,6 +234,9 @@ type Data struct {
 // 브라우저 런타임이 세 번 잇달아 못 받으면 끊김으로 알리는 것(STALE_AFTER)에 맞춘다.
 const StaleAfter = 3
 
+// maxTTL 은 묻는 간격의 상한(초, 약 31년)이다. 더 큰 ttl 을 Duration 으로 바꾸면 넘친다.
+const maxTTL = 1e9
+
 // Old 는 파일 피드가 끊김으로 보인 까닭(그대로 있은 시간)이다. 끊김이 아니면 0 이다.
 func (d *Data) Old() time.Duration { return d.age }
 
@@ -258,6 +261,7 @@ func (d *Data) Floor() time.Duration {
 
 func (d *Data) Next(ctx context.Context) feed.Result {
 	if !d.remote {
+		d.age = 0
 		info, err := os.Stat(d.target)
 		if err != nil {
 			return feed.Result{Error: err.Error(), Code: "read"}
@@ -270,14 +274,14 @@ func (d *Data) Next(ctx context.Context) feed.Result {
 		// 쓰던 쪽이 멈추면 파일은 마지막 내용으로 남는다. meta.ttl 을 적은 피드는
 		// 파일이 ttl 의 세 배보다 오래 그대로면 끊김으로 본다. 값은 그대로 넘기고 Code 만 "old" 로 단다.
 		// ttl 이 없는 파일(손으로 써 둔 고정 파일 같은)은 나이를 보지 않는다.
-		d.age = 0
 		if r.OK && r.Feed.Meta != nil && r.Feed.Meta.TTL != nil && *r.Feed.Meta.TTL > 0 {
 			now := time.Now
 			if d.now != nil {
 				now = d.now
 			}
 			age := now().Sub(info.ModTime())
-			if age > time.Duration(StaleAfter*(*r.Feed.Meta.TTL)*float64(time.Second)) {
+			// 초 단위로 견준다. 아주 큰 ttl 을 Duration 으로 바꾸면 넘쳐서 CPU 마다 결과가 달라진다
+			if age.Seconds() > StaleAfter*(*r.Feed.Meta.TTL) {
 				d.age = age
 				r.Code = "old"
 				r.Error = fmt.Sprintf("파일이 %d초째 그대로다", int(age.Seconds()))
@@ -312,7 +316,7 @@ func (d *Data) Next(ctx context.Context) feed.Result {
 		if r.Feed.Meta != nil && r.Feed.Meta.TTL != nil {
 			ttl = *r.Feed.Meta.TTL
 		}
-		d.every = time.Duration(math.Max(10, ttl) * float64(time.Second))
+		d.every = time.Duration(math.Min(math.Max(10, ttl), maxTTL) * float64(time.Second))
 	}
 	return r
 }

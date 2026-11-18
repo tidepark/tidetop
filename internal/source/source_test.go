@@ -83,6 +83,11 @@ func TestFileFeedGoesStaleWhenOld(t *testing.T) {
 		{"ttl-old.json", withTTL, 16 * time.Second, true},
 		{"ttl-new.json", withTTL, 14 * time.Second, false},
 		{"plain-old.json", noTTL, 24 * time.Hour, false},
+		// ttl 이 0 이면 나이를 보지 않는다
+		{"zero-ttl-old.json", `{"spec":1,"values":[{"value":42,"to":100}],"meta":{"ttl":0}}`, 24 * time.Hour, false},
+		// 아주 큰 ttl(「만료 없음」의 뜻)은 넘치지 않고 끊김이 되지 않는다. 예전에는 amd64 에서 늘 끊김이었다
+		{"huge-ttl-new.json", `{"spec":1,"values":[{"value":42,"to":100}],"meta":{"ttl":1e10}}`, 0, false},
+		{"max-ttl-new.json", `{"spec":1,"values":[{"value":42,"to":100}],"meta":{"ttl":1e300}}`, 0, false},
 	}
 	for _, c := range cases {
 		d, err := NewData(write(c.name, c.text, c.age))
@@ -99,5 +104,30 @@ func TestFileFeedGoesStaleWhenOld(t *testing.T) {
 		if got := d.Old() > 0; got != c.old {
 			t.Errorf("%s: Old() %v", c.name, d.Old())
 		}
+	}
+}
+
+// 끊긴 뒤 파일이 사라지면 나이가 남지 않는다(상태 줄에 멈춘 「N초째 그대로」가 남지 않게)
+func TestFileFeedAgeClearsWhenFileGoes(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "feed.json")
+	if err := os.WriteFile(p, []byte(`{"spec":1,"values":[{"value":42,"to":100}],"meta":{"ttl":5}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	at := time.Now().Add(-time.Minute)
+	if err := os.Chtimes(p, at, at); err != nil {
+		t.Fatal(err)
+	}
+	d, err := NewData(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := d.Next(context.Background()); r.Code != "old" || d.Old() <= 0 {
+		t.Fatalf("먼저 끊김이어야 한다: %q %v", r.Code, d.Old())
+	}
+	if err := os.Remove(p); err != nil {
+		t.Fatal(err)
+	}
+	if r := d.Next(context.Background()); r.OK || d.Old() != 0 {
+		t.Fatalf("파일이 없으면 읽기 실패이고 나이는 0 이다: ok=%v old=%v", r.OK, d.Old())
 	}
 }

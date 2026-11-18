@@ -99,7 +99,7 @@ tidetop --demo             # 40초마다 오르내리는 흉내 값
 - **스스로 top 으로 넘어가기**: `tidetop -t -m 25 -d 3`은 여유가 25% 이하로 3초 이어지면 top 으로 바뀐다.
 - **여러 컴퓨터의 창 이어 붙이기**: 왼쪽 위 컴퓨터에서 `tidetop --grid 2x2 --pos 1`, 오른쪽 위에서 `--pos 2` 식으로 띄운다. 각 창은 자기 부하로 그림 하나의 조각을 그리고, 서로 통신하지 않는다. 바쁜 컴퓨터의 조각만 메마른다.
 - **직접 만드는 글자 그림**: `tidetop init my-art`가 견본 `0.txt`~`100.txt`를 만들고, `tidetop --art my-art`가 값이 다다른 숫자의 그림을 보여 준다.
-- **피드 읽기**: `tidetop --data feed.json`이나 `--data https://…`로 이 컴퓨터 대신 [tidepic](https://github.com/tidepark/tidepic) 피드를 읽는다. 스크립트가 파일을 쓴다면 피드에 `meta.ttl`을 적고, 값이 같아도 매번 다시 쓴다. 파일이 ttl 의 세 배보다 오래 그대로면 끊김으로 보여서, 스크립트가 멈췄을 때 옛 숫자가 지금 숫자처럼 보이지 않는다.
+- **피드 읽기**: `tidetop --data feed.json`이나 `--data https://…`로 이 컴퓨터 대신 [tidepic](https://github.com/tidepark/tidepic) 피드를 읽는다. 스크립트가 파일을 쓴다면 피드에 0 보다 큰 `meta.ttl`을 적고, 값이 같아도 매번 다시 쓴다. 파일이 ttl 의 세 배보다 오래 그대로면 장면이 잿빛(끊김)이 되고 상태 줄(`i`)에 몇 초째 그대로인지 나와서, 스크립트가 멈췄을 때 옛 숫자가 지금 숫자처럼 보이지 않는다.
 
 ## 부하
 

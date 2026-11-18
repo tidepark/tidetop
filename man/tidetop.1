@@ -69,10 +69,14 @@ Read a tidepic feed. A file is read again every second. An https URL is asked no
 more often than every 10 seconds, or the feed's
 .B meta.ttl
 if longer. Plain http is not accepted.
-When a file feed has
-.BR meta.ttl ,
-the file counts as stale once it has not changed for three times the ttl, so a
-writer that stopped does not leave an old number looking current. Give
+When a file feed has a
+.B meta.ttl
+above 0, the file counts as stale once it has not changed for more than three
+times the ttl, so a writer that stopped does not leave an old number looking
+current: the scene turns grey and the status line (key
+.BR i )
+says how long the file has been unchanged. Without colour only the status line
+shows it. Give
 .B meta.ttl
 and rewrite the file every time, even when the value is the same.
 .TP

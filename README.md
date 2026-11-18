@@ -99,7 +99,7 @@ Keys are not case-sensitive.
 - **Switch to top on its own**: `tidetop -t -m 25 -d 3` replaces itself with `top` when headroom stays at or below 25% for 3 seconds.
 - **Join several computers' windows**: run `tidetop --grid 2x2 --pos 1` on the top-left computer, `--pos 2` on the top-right, and so on. Each draws its piece of one picture with its own load; the windows do not talk to each other. Only a busy computer's piece dries out.
 - **Your own text pictures**: `tidetop init my-art` writes sample files `0.txt` to `100.txt`; `tidetop --art my-art` shows the one whose number the value has reached.
-- **Read a feed**: `tidetop --data feed.json` or `--data https://…` reads a [tidepic](https://github.com/tidepark/tidepic) feed instead of this computer. If a script writes the file, put `meta.ttl` in the feed and rewrite the file every time, even when the value is the same: a file left unchanged for three times the ttl shows as stale, so a stopped script does not leave an old number looking current.
+- **Read a feed**: `tidetop --data feed.json` or `--data https://…` reads a [tidepic](https://github.com/tidepark/tidepic) feed instead of this computer. If a script writes the file, put a `meta.ttl` above 0 in the feed and rewrite the file every time, even when the value is the same: a file left unchanged for more than three times the ttl turns grey (stale) and the status line (`i`) says for how long, so a stopped script does not leave an old number looking current.
 
 ## Load
 

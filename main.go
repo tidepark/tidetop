@@ -298,6 +298,7 @@ type app struct {
 	target   []feed.Computed
 	shown    []feed.Computed
 	stale    bool
+	oldFor   time.Duration // 파일 피드가 그대로 있은 시간(끊김일 때). 메인 고루틴에서만 읽고 쓴다
 	problem  string
 	chosen   time.Duration
 	polledAt time.Time
@@ -407,10 +408,14 @@ func (a *app) poll(ctx context.Context) {
 }
 
 func (a *app) apply(r feed.Result) {
+	a.oldFor = 0
 	if r.OK {
 		a.target = feed.Compute(r.Feed)
 		// 파일 피드가 오래 그대로면 값은 받되 끊김으로 덮는다
 		a.stale = r.Code == "old"
+		if d, ok := a.src.(*source.Data); ok && a.stale {
+			a.oldFor = d.Old() // Next 가 결과를 보낸 뒤라 읽기와 겹치지 않는다
+		}
 	} else {
 		a.problem = r.Error
 		a.stale = true
@@ -500,8 +505,8 @@ func (a *app) status() string {
 		if korean {
 			label = "값"
 		}
-		if d, ok := a.src.(*source.Data); ok && a.stale && d.Old() > 0 {
-			secs := int(d.Old().Seconds())
+		if a.stale && a.oldFor > 0 {
+			secs := int(a.oldFor.Seconds())
 			name += " | " + a.say(fmt.Sprintf("파일이 %d초째 그대로", secs), fmt.Sprintf("file unchanged for %ds", secs))
 		}
 		return fmt.Sprintf("[%s %s | %s]", label, v, name)

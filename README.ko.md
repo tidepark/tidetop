@@ -26,18 +26,31 @@ brew install tidepark/tap/tidetop
 
 **리눅스**
 
+어느 배포판이든, curl 이나 wget 으로 (/usr/local/bin 또는 ~/.local/bin 에 깐다):
+
 ```bash
-# 어느 배포판이든, curl 이나 wget 으로 (/usr/local/bin 또는 ~/.local/bin 에 깐다)
 curl -fsSL https://raw.githubusercontent.com/tidepark/tidetop/main/install.sh | sh
+```
+
+```bash
 wget -qO- https://raw.githubusercontent.com/tidepark/tidetop/main/install.sh | sh
+```
 
-# 데비안, 우분투
+데비안, 우분투:
+
+```bash
 curl -fsSLO https://github.com/tidepark/tidetop/releases/latest/download/tidetop_linux_amd64.deb && sudo apt install ./tidetop_linux_amd64.deb
+```
 
-# 페도라, RHEL, 록키, 알마
+페도라, RHEL, 록키, 알마:
+
+```bash
 sudo dnf install https://github.com/tidepark/tidetop/releases/latest/download/tidetop_linux_amd64.rpm
+```
 
-# 알파인
+알파인:
+
+```bash
 wget https://github.com/tidepark/tidetop/releases/latest/download/tidetop_linux_amd64.apk && sudo apk add --allow-untrusted ./tidetop_linux_amd64.apk
 ```
 
@@ -51,11 +64,9 @@ npm 꾸러미는 얇은 감싸개다. 릴리즈와 같은 실행 파일을 운�
 
 ## 쓰기
 
-```bash
-tidetop                    # 숲. 이 컴퓨터의 CPU 를 읽는다
-tidetop --scene stars      # 다른 장면 (띄운 뒤에는 Tab)
-tidetop --demo             # 40초마다 오르내리는 흉내 값
-```
+- `tidetop`: 숲. 이 컴퓨터의 CPU 를 읽는다.
+- `tidetop --scene stars`: 다른 장면 (띄운 뒤에는 Tab).
+- `tidetop --demo`: 40초마다 오르내리는 흉내 값.
 
 `h`로 키를 보고 `q`로 끝낸다. 옵션은 `tidetop --help`에 모두 있다. Homebrew, 설치 스크립트, .deb/.rpm/.apk 로 깔았으면 `man tidetop`에 더 자세하다. 로캘이 `ko`로 시작하면 도움말과 알림이 한글이다.
 

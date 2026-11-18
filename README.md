@@ -26,18 +26,31 @@ brew install tidepark/tap/tidetop
 
 **Linux**
 
+Any distribution, with curl or wget (installs to /usr/local/bin, or ~/.local/bin):
+
 ```bash
-# any distribution, with curl or wget (installs to /usr/local/bin, or ~/.local/bin)
 curl -fsSL https://raw.githubusercontent.com/tidepark/tidetop/main/install.sh | sh
+```
+
+```bash
 wget -qO- https://raw.githubusercontent.com/tidepark/tidetop/main/install.sh | sh
+```
 
-# Debian, Ubuntu
+Debian, Ubuntu:
+
+```bash
 curl -fsSLO https://github.com/tidepark/tidetop/releases/latest/download/tidetop_linux_amd64.deb && sudo apt install ./tidetop_linux_amd64.deb
+```
 
-# Fedora, RHEL, Rocky, Alma
+Fedora, RHEL, Rocky, Alma:
+
+```bash
 sudo dnf install https://github.com/tidepark/tidetop/releases/latest/download/tidetop_linux_amd64.rpm
+```
 
-# Alpine
+Alpine:
+
+```bash
 wget https://github.com/tidepark/tidetop/releases/latest/download/tidetop_linux_amd64.apk && sudo apk add --allow-untrusted ./tidetop_linux_amd64.apk
 ```
 
@@ -51,11 +64,9 @@ The npm package is a thin wrapper: it carries the same release binaries as small
 
 ## Use
 
-```bash
-tidetop                    # the grove, reading this computer's CPU
-tidetop --scene stars      # another scene (or press Tab while it runs)
-tidetop --demo             # a pretend value that rises and falls every 40 seconds
-```
+- `tidetop`: the grove, reading this computer's CPU.
+- `tidetop --scene stars`: another scene (or press Tab while it runs).
+- `tidetop --demo`: a pretend value that rises and falls every 40 seconds.
 
 Press `h` for keys and `q` to quit. `tidetop --help` lists every option; `man tidetop` has more when installed with Homebrew, the install script, or a .deb/.rpm/.apk package.
 

@@ -641,7 +641,10 @@ func (a *app) press(code byte, readNow func()) bool {
 				sw.SetBasis("cpu")
 			}
 		}
-		readNow()
+		// https 피드는 바닥 간격 안에 다시 묻지 않는다. 받은 값은 장면과 상관없어 그대로 그린다
+		if time.Since(a.polledAt) >= a.src.Floor() {
+			readNow()
+		}
 		a.show(fixed(a.say("장면 "+sceneTitles[a.name]+" ("+a.name+")", "scene "+a.name)), 2)
 	case ' ':
 		if wait := a.src.Floor() - time.Since(a.polledAt); wait > 0 {

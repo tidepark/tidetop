@@ -1,0 +1,258 @@
+.TH TIDETOP 1 "2026-11-18" "tidetop 0.1" "User Commands"
+.SH NAME
+tidetop \- a tidepic scene in your terminal
+.SH SYNOPSIS
+.B tidetop
+.RI [ options ]
+.br
+.B tidetop init
+.I folder
+.SH DESCRIPTION
+.B tidetop
+shows a number as a scene instead of a chart. It is meant to sit in a corner of a
+terminal and be read at a glance: whether things are roomy or tight right now,
+rather than the exact value.
+.PP
+Without
+.BR \-\-data ,
+it reads this computer's CPU (and memory with
+.BR \-M ).
+With
+.BR \-\-data ,
+it reads a tidepic feed from a file or an https URL.
+Values are checked and computed by the tidepic runtime before a scene sees them.
+.PP
+The scenes
+.B grove
+and
+.B stars
+read
+.I headroom
+(100 minus CPU use), so they draw less when the computer is busy.
+When headroom falls below 10% they draw flickering lines like a broken monitor.
+.SH SCENES
+.TP
+.B campfire
+One value (CPU use). The busier, the larger the fire.
+.TP
+.B grove
+Headroom. The default scene. Roomy: leaves, green ground, a full pond, a waterfall, clouds.
+Tight: bare branches and dry ground, still. Skins:
+.B night
+(default) and
+.BR day .
+.TP
+.B stars
+Headroom. Roomy: a clear sky, the Milky Way, twinkling stars, meteors, an aurora near the top.
+Tight: clouds cover a dark sky. Skins:
+.B milkyway
+(default) and
+.BR galaxy .
+.TP
+.B tide
+Two values: memory (water level) and CPU (roughness).
+.TP
+.B windows
+One lit window per CPU core.
+.SH OPTIONS
+.TP
+.BI \-\-scene " name"
+Scene to show:
+.BR grove ,
+.BR stars ,
+.BR campfire ,
+.BR tide ,
+.BR windows .
+.TP
+.BI \-\-data " file|url"
+Read a tidepic feed. A file is read again every second. An https URL is asked no
+more often than every 10 seconds, or the feed's
+.B meta.ttl
+if longer. Plain http is not accepted.
+.TP
+.BI \-\-art " folder"
+Use a folder of text pictures as the scene. See
+.BR "TEXT PICTURES" .
+.TP
+.B \-\-demo
+Use a pretend value that rises and falls every 40 seconds instead of real numbers.
+Headroom scenes stay below the 10% line for about 4 seconds at the bottom.
+Cannot be used with
+.BR \-\-data .
+.TP
+.BI \-\-skin " name"
+The scene's look. grove:
+.BR night ,
+.BR day .
+stars:
+.BR milkyway ,
+.BR galaxy .
+.TP
+.B \-\-quality low|high
+.B high
+uses half blocks and Braille dots with 24-bit colour and needs UTF-8.
+.B low
+uses ASCII and up to eight colours. Picked from the terminal if omitted.
+.TP
+.BI \-\-fps " n"
+Frames per second, 1 to 60. Default 15 for high, 2 for low.
+.TP
+.BR \-M ", " \-\-mem
+Start on memory instead of CPU. Only for scenes that read one value
+(campfire, grove, stars, text pictures). Same as key
+.BR m .
+.TP
+.BR \-t ", " \-\-top
+When the headroom shown stays at or below a line for some seconds, close tidetop
+and run
+.BR top (1)
+in its place. Not available on Windows.
+It does not come back. When top ends, tidetop ends. Cannot be used with
+.BR \-\-data .
+.TP
+.BR \-m ", " \-\-top\-below " \fIpercent\fR"
+The line for
+.BR \-t .
+Default 20.
+.TP
+.BR \-d ", " \-\-top\-after " \fIseconds\fR"
+How long
+.B \-t
+waits below the line. Default 5. 0 switches at once.
+.TP
+.BI \-\-grid " across" x down
+Join several windows into one picture split into
+.I across
+by
+.I down
+pieces. See
+.BR "JOINED WINDOWS" .
+Only for grove and stars.
+.TP
+.BI \-\-pos " n"
+The piece this window draws, counted from the top left: 1, 2, ... (2x2 is 1 2 / 3 4).
+.TP
+.B \-\-once
+Print one frame and exit. Outside a terminal, give the size with
+.B COLUMNS
+and
+.BR LINES .
+.TP
+.B \-\-help
+Show a short help.
+.TP
+.BR \-v ", " \-\-version
+Print the version.
+.SH KEYS
+Keys are not case-sensitive.
+.TP
+.BR Tab ", " n
+Next scene: grove, stars, campfire, tide, windows. The value the scene reads is read again at once.
+Not with
+.B \-\-art
+or in a joined window.
+.TP
+.B space
+Read the value now. An https feed is not asked again within its floor (10 seconds or meta.ttl).
+.TP
+.B s
+Change the read interval in turn: 0.5, 1, 2, 5 seconds; for https feeds 10, 30, 60 seconds.
+.TP
+.BR p " / " m
+Read CPU / memory. Only for scenes that read one value and only for this computer.
+.TP
+.BR 1 ", " c
+Split the screen into one piece per CPU core. Press again to go back.
+From memory, it switches to CPU first. Pieces smaller than 8 by 3 cells are not made.
+.TP
+.B z
+Change the skin.
+.TP
+.B i
+Show or hide a status line at the bottom right, for example
+.BR "[CPU 12% | grove]" .
+Hidden by default.
+.TP
+.B t
+Close tidetop and run top now. Not available on Windows.
+.TP
+.BR h ", " ?
+Show or hide the key help.
+.TP
+.BR q ", " Ctrl+C
+Quit.
+.SH JOINED WINDOWS
+Put terminal windows of several computers side by side. Each draws one piece of a
+large picture with its own computer's value, so only a busy computer's piece dries
+out or shows caution lines. The windows do not talk to each other.
+.PP
+The large picture is this window's size times the number of pieces, so the piece
+always fills the window. Windows should share the same aspect ratio for the edges
+to meet. Motion follows the wall clock, so pieces line up when the clocks agree.
+.PP
+.nf
+tidetop \-\-scene grove \-\-grid 2x2 \-\-pos 1   # top left
+tidetop \-\-scene grove \-\-grid 2x2 \-\-pos 3   # bottom left
+.fi
+.SH TEXT PICTURES
+.B tidetop init
+.I folder
+writes eleven sample pictures (a campfire,
+.B 0.txt
+to
+.BR 100.txt )
+and a README.txt. It does not write into a folder that is not empty.
+.PP
+In a picture folder, each
+.IB number .txt
+is a picture. A picture shows when the value is at least its number.
+Below the smallest number, the smallest picture shows. Files without a number
+in the name are skipped.
+.PP
+Numbers use the value's own units. Without
+.BR \-\-data ,
+the value is CPU use in percent (0 is idle). For a 0\(en10 feed use
+.B 0.txt
+to
+.BR 10.txt ;
+for on and off,
+.B 0.txt
+and
+.BR 1.txt .
+.PP
+A line holding only
+.B \-\-\-
+splits a file into frames, shown two per second.
+Pictures are centred and cut where they do not fit. Wide characters such as
+Hangul take two cells; emoji become
+.BR ? .
+Terminal control codes are removed. Up to 200 files of 64KB and 32 frames each
+are read once at start.
+.SH LOAD
+tidetop writes only the cells that changed, looks four times a second while the
+screen is still, and draws 15 frames a second by default. On an M-series Mac at
+120\(mu40 cells it used about 0.3\(en3% of one core and 13\(en16MB of memory
+(started directly; through npm, Node stays running beside it).
+Lower
+.B \-\-fps
+or use
+.B \-\-quality low
+to use less.
+.SH ENVIRONMENT
+.TP
+.B NO_COLOR
+Draw without colour.
+.TP
+.BR LANG ", " LC_ALL
+Messages are in Korean when the locale starts with
+.BR ko .
+.SH EXAMPLES
+.nf
+tidetop
+tidetop \-\-scene stars
+tidetop \-\-scene grove \-\-skin day \-t \-m 25 \-d 3
+tidetop \-\-data https://tidepark.com/feed/sample/campfire
+tidetop init ~/my\-art && tidetop \-\-art ~/my\-art
+.fi
+.SH SEE ALSO
+.BR top (1)

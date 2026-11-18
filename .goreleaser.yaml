@@ -1,0 +1,87 @@
+# 태그(v0.1.0 같은)를 올리면 GitHub Actions 가 이것으로 릴리즈한다(.github/workflows/release.yml).
+version: 2
+project_name: tidetop
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: tidetop
+    main: .
+    binary: tidetop
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - README.ko.md
+      - man/*
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  sort: asc
+
+# 리눅스 꾸러미: .deb .rpm .apk. 파일 이름에 판 번호를 넣지 않아 releases/latest/download/ 주소가 늘 같다
+release:
+  github:
+    owner: tidepark
+    name: tidetop
+
+nfpms:
+  - id: linux
+    package_name: tidetop
+    file_name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ .ConventionalExtension }}"
+    vendor: Tidepark
+    homepage: https://github.com/tidepark/tidetop
+    maintainer: Tidepark <hello@tidepark.com>
+    description: A tidepic scene in your terminal
+    license: MIT
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    contents:
+      - src: man/tidetop.1
+        dst: /usr/share/man/man1/tidetop.1
+      - src: man/tidetop.ko.1
+        dst: /usr/share/man/ko/man1/tidetop.1
+      - src: LICENSE
+        dst: /usr/share/doc/tidetop/LICENSE
+
+# Homebrew: brew install tidepark/tap/tidetop
+homebrew_casks:
+  - name: tidetop
+    repository:
+      owner: tidepark
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: https://github.com/tidepark/tidetop
+    description: A tidepic scene in your terminal
+    license: MIT
+    commit_author:
+      name: Tidepark
+      email: 171097533+organicsand@users.noreply.github.com
+    binaries: [tidetop]
+    manpages: [man/tidetop.1]
+    hooks:
+      post:
+        # 서명하지 않은 실행 파일이라 받은 뒤 붙는 격리 표시를 뗀다
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/tidetop"]
+          end

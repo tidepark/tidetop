@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"os/exec"
@@ -290,6 +291,9 @@ type app struct {
 	color    bool
 	fps      float64
 	remote   bool
+	asked    time.Time // 터미널에게 다 그렸는지 물은 때. 답을 받으면 0 으로 돌린다
+	answered bool      // 터미널이 한 번이라도 답했는가
+	replies  chan struct{}
 	skin     string
 	target   []feed.Computed
 	shown    []feed.Computed
@@ -742,9 +746,35 @@ func (a *app) press(code byte, readNow func()) bool {
 	return true
 }
 
+// waiting: 앞 장에 대한 터미널의 답을 기다리는 중인가.
+// 첫 물음에 1초 안에 답하지 않은 터미널은 묻지 않고 그린다. 답한 적이 있으면 길이 느려도 답을 기다린다
+// (30초가 지나면 답이 사라졌다고 보고 다시 그린다).
+func (a *app) waiting(now time.Time) bool {
+	if a.asked.IsZero() {
+		return false
+	}
+	limit := time.Second
+	if a.answered {
+		limit = 30 * time.Second
+	}
+	if now.Sub(a.asked) < limit {
+		return true
+	}
+	a.asked = time.Time{}
+	return false
+}
+
 func (a *app) quit() {
 	if a.screen != nil {
 		a.screen.Close()
+	}
+	// 아직 오지 않은 답이 끝난 뒤 셸에 글자로 찍히지 않게 잠깐 받아 버린다
+	if !a.asked.IsZero() && a.replies != nil {
+		select {
+		case <-a.replies:
+		case <-time.After(500 * time.Millisecond):
+		}
+		a.asked = time.Time{}
 	}
 	if a.restore != nil {
 		a.restore()
@@ -801,18 +831,26 @@ func (a *app) loop(ctx context.Context, out *os.File) {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	keys := make(chan byte, 16)
+	replies := make(chan struct{}, 4)
 	go func() {
-		buf := make([]byte, 16)
+		buf := make([]byte, 64)
+		var in term.Input
 		for {
 			n, err := os.Stdin.Read(buf)
 			if err != nil {
 				return
 			}
 			for _, b := range buf[:n] {
-				keys <- b
+				k, isKey, reply := in.Feed(b)
+				if reply {
+					replies <- struct{}{}
+				} else if isKey {
+					keys <- k
+				}
 			}
 		}
 	}()
+	a.replies = replies
 	results := make(chan feed.Result, 1)
 	pollTimer := time.NewTimer(a.interval())
 	a.polledAt = time.Now()
@@ -826,6 +864,9 @@ func (a *app) loop(ctx context.Context, out *os.File) {
 		go func() { results <- a.src.Next(ctx) }()
 	}
 	a.screen.Open()
+	// 그리기 전에 한 번 물어 이 터미널이 답하는지 본다. 이 답은 길을 한 번 오가는 시간만큼만 걸린다
+	io.WriteString(out, term.Ask)
+	a.asked = time.Now()
 	defer a.quit()
 	a.watchTop()
 
@@ -846,6 +887,9 @@ func (a *app) loop(ctx context.Context, out *os.File) {
 			if !a.press(k, readNow) {
 				return
 			}
+		case <-replies:
+			a.asked = time.Time{}
+			a.answered = true
 		case <-pollTimer.C:
 			readNow()
 		case r := <-results:
@@ -854,6 +898,11 @@ func (a *app) loop(ctx context.Context, out *os.File) {
 			a.watchTop()
 			pollTimer.Reset(a.interval())
 		case now := <-tick.C:
+			if a.waiting(now) {
+				// 앞 장이 아직 터미널에 다 그려지지 않았다. 더 보내지 않는다
+				tick.Reset(time.Duration(1000/a.fps) * time.Millisecond)
+				continue
+			}
 			a.shown = source.Ease(a.shown, a.target, now.Sub(last).Seconds(), 0.9)
 			last = now
 			cols, rows := term.Size(out)
@@ -874,6 +923,10 @@ func (a *app) loop(ctx context.Context, out *os.File) {
 			drawn := time.Now()
 			if a.screen.Draw(g) {
 				a.still = 0
+				if a.answered {
+					io.WriteString(out, term.Ask)
+					a.asked = time.Now()
+				}
 			} else {
 				a.still++
 			}

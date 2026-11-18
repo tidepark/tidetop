@@ -105,7 +105,7 @@ Keys are not case-sensitive.
 
 tidetop writes only the cells that change and slows its checks when the screen is still. Measured at 120×40 cells, 15 frames a second, on an M-series Mac: about 0.3–3% of one core and 13–16 MB of memory, depending on the scene and value (started directly, not through npm). Lower `--fps` or use `--quality low` to use less.
 
-Over SSH the picture crosses the network, so tidetop draws 8 frames a second instead of 15 and skips cells whose colour moved only slightly. When writing a frame takes long, it waits that much longer, so `q` is not held up behind queued output. `--quality low` sends the least: about 1–2 KB a second.
+Over SSH the picture crosses the network, so tidetop draws 8 frames a second instead of 15 and skips cells whose colour moved only slightly. After each frame it asks the terminal to report back once the frame is drawn, and sends the next frame only after the answer, so frames never pile up on a slow link and `q` takes effect within about one frame. The picture keeps updating on its own, as fast as the link allows. `--quality low` sends the least: about 1–2 KB a second.
 
 ## Terminals
 

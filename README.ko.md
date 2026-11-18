@@ -136,4 +136,6 @@ SSH 너머에서는 화면이 네트워크를 건너가므로 1초에 15장 대�
 
 tidetop 은 [Tidepark](https://tidepark.com) 이 숫자를 장면으로 보여 주는 규칙인 [tidepic](https://github.com/tidepark/tidepic) 을 따른다. 연락: hello@tidepark.com
 
+tidetop 은 인공지능 Claude 와 함께 썼다.
+
 MIT 라이선스.

@@ -136,4 +136,6 @@ The full picture needs 24-bit colour and UTF-8. Otherwise tidetop draws with ASC
 
 tidetop follows [tidepic](https://github.com/tidepark/tidepic), the rule [Tidepark](https://tidepark.com) uses to show numbers as scenes. Contact: hello@tidepark.com
 
+tidetop was written with Claude, an AI model.
+
 MIT License.

@@ -1,6 +1,95 @@
-# Prometheus 와 Grafana
+# 본보기
 
 [English](README.md)
+
+tidetop 은 `--data`로 이 컴퓨터의 CPU 대신 tidepic 피드를 읽는다. 피드는 값을 적은 작은 JSON(프로그램끼리 값을 주고받는 글의 형식) 파일이다. 서버의 수치를 재어 이 파일로 쓰는 스크립트를 곁에 돌려 두면, 디스크나 트래픽도 장면으로 볼 수 있다.
+
+- [피드에 값 적기](#피드에-값-적기)
+- [디스크](#디스크): 몇 줄짜리 반복문
+- [트래픽](#트래픽): `traffic.sh` (리눅스)
+- [여러 수치를 한 화면에](#여러-수치를-한-화면에)
+- [Prometheus 와 Grafana](#prometheus-와-grafana): `prometheus.sh`
+
+## 피드에 값 적기
+
+디스크가 73% 남았다면 이렇게 적는다.
+
+```json
+{"spec":1,"meta":{"ttl":60},"values":[{"value":73,"from":10,"to":100,"unit":"%"}]}
+```
+
+- **남은 양을 적는다.** 숲, 별하늘, 도서관은 값이 클수록 우거진다. 그래서 디스크라면 쓴 비율이 아니라 남은 비율을 적는다. 쓴 양을 그대로 적으려면 값이 클수록 불이 커지는 `campfire`로 본다.
+- **퍼센트가 아니어도 된다.** 장면은 값이 `from`에서 `to`까지의 어디쯤인지만 본다. `from`이 없으면 0 이다. `{"value":950,"to":1000}`은 우거지고 `{"value":50,"to":1000}`은 앙상하다.
+- **`from`은 주의할 선이다.** 값이 `from`에 닿으면 장면이 가장 앙상해지고, 그 아래로 내려가면 깨진 모니터 같은 가는 줄(주의 줄)이 깜빡인다. tidetop 이 이 컴퓨터의 CPU 를 읽을 때도 여유에 `"from":10`을 준다.
+- **값이 같아도 다시 쓴다.** `meta.ttl`은 몇 초마다 파일을 다시 쓰는지다. 파일이 ttl 의 세 배보다 오래 그대로면 장면이 잿빛(끊김)이 된다. 스크립트가 멈췄을 때 옛 숫자가 지금 숫자처럼 보이지 않게 한다.
+- **다 쓴 뒤 바꿔 넣는다.** 다른 이름의 파일에 쓰고 `mv`로 바꾸면, 쓰다 만 파일을 tidetop 이 읽지 않는다.
+
+## 디스크
+
+루트(`/`) 디스크의 남은 비율을 1분마다 `disk.json`에 쓴다. 리눅스와 macOS 에서 된다.
+
+```sh
+while :; do
+  df -P / | awk 'NR == 2 {printf "{\"spec\":1,\"meta\":{\"ttl\":60},\"values\":[{\"value\":%d,\"from\":10,\"to\":100,\"unit\":\"%%\"}]}\n", 100 - $5}' > disk.json.tmp && mv disk.json.tmp disk.json
+  sleep 60
+done
+```
+
+다른 터미널에서 `tidetop --data disk.json`을 띄운다. 남은 비율이 10% 아래로 내려가면 주의 줄이 나온다.
+
+## 트래픽
+
+`traffic.sh`는 리눅스에서 네트워크 장치가 받고 보낸 바이트를 2초마다 재어 여유(%)를 `traffic.json`에 쓴다. 받는 쪽과 보내는 쪽 가운데 더 바쁜 쪽을 회선의 한도에 견준다. 한도의 90% 넘게 쓰면 여유가 10% 아래가 되어 주의 줄이 나온다.
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/tidepark/tidetop/main/examples/traffic.sh
+```
+
+```bash
+sh traffic.sh
+```
+
+`traffic.sh: wrote traffic.json (eth0, 1000 Mbit/s)`(파일을 썼다, 잰 장치와 한도)가 찍히면 다른 터미널에서 띄운다.
+
+```bash
+tidetop --data traffic.json
+```
+
+명령 앞에 붙여 바꿀 수 있는 것:
+
+| 이름 | 뜻 | 기본 |
+|---|---|---|
+| `IFACE` | 잴 장치 | 바깥으로 나가는 기본 길의 장치 |
+| `MAX_MBIT` | 가득으로 볼 속도(Mbit/s) | 장치가 알려 주는 연결 속도, 모르면 100 |
+| `EVERY` | 재는 간격(초) | 2 |
+| `OUT` | 쓸 파일 | `traffic.json` |
+
+장치가 알려 주는 연결 속도는 장치가 이어진 속도다. 클라우드 서버나 요금제로 한도가 정해진 회선은 그보다 좁은 일이 많으니 `MAX_MBIT`에 실제 한도를 준다.
+
+```bash
+MAX_MBIT=500 sh traffic.sh
+```
+
+## 여러 수치를 한 화면에
+
+`--grid`와 `--data`는 같이 쓴다. 터미널을 나란히 둘로 나누고 칸마다 다른 파일을 읽히면, 한 그림의 조각마다 다른 수치를 그린다. 왼쪽 조각은 디스크, 오른쪽 조각은 트래픽이고, 빠듯한 쪽의 조각만 메마른다.
+
+```bash
+tidetop --grid 2x1 --pos 1 --data disk.json
+```
+
+```bash
+tidetop --grid 2x1 --pos 2 --data traffic.json
+```
+
+칸의 크기가 같아야 그림이 이어진다. tmux(터미널 하나를 여러 칸으로 나누는 프로그램)에서는 `tmux select-layout even-horizontal`이 칸 너비를 고르게 맞춘다. 셋이면 `--grid 3x1`이다.
+
+같은 꼴로 적을 수 있는 다른 수치:
+
+- DB 의 남은 연결 수: `value`에 최대 연결 수에서 지금 연결 수를 뺀 수, `to`에 최대 연결 수.
+- 인증서가 끝나기까지 남은 날: `value`에 남은 날, `from`에 14, `to`에 90. 14일보다 적게 남으면 주의 줄이 나온다.
+
+## Prometheus 와 Grafana
 
 `prometheus.sh`는 15초마다 Prometheus 에 질의를 보내고, 그 답을 tidepic 피드 파일 `feed.json`으로 쓴다. tidetop 은 이 파일을 읽어 대상 하나를 창 하나로 그린다. 켜진 창은 Prometheus 가 수치를 긁어 온 대상이고, 검붉은 창은 긁어 오지 못한 대상이다.
 
@@ -8,7 +97,7 @@ tidetop 은 피드를 파일이나 https(주고받는 내용을 암호로 감싸
 
 필요한 것은 `sh`, `curl`, `jq` 1.5 이상, tidetop 0.1.3 이상이다. 윈도우에서는 tidetop 도 WSL(윈도우에서 리눅스를 돌리는 기능) 안에 리눅스에서처럼 깔고, 스크립트와 tidetop 을 둘 다 그 안에서 돌린다.
 
-## Prometheus 에 바로 묻기
+### Prometheus 에 바로 묻기
 
 스크립트를 받는다.
 
@@ -34,7 +123,7 @@ tidetop --scene windows --data feed.json
 PROM_URL=http://prometheus.example.com:9090 QUERY='up{job="node"}' sh prometheus.sh
 ```
 
-## Grafana 를 거쳐 묻기
+### Grafana 를 거쳐 묻기
 
 Prometheus 에는 닿지 않고 Grafana 에만 닿는다면, Grafana 의 자료원 프록시(Grafana 가 받은 질의를 Prometheus 에 대신 넘겨 주는 주소)로 같은 질의를 보낸다. 스크립트는 토큰을 헤더 파일(3번)에서 읽는데, 그러려면 curl 7.55 이상이 있어야 한다.
 
@@ -62,7 +151,7 @@ Prometheus 에는 닿지 않고 Grafana 에만 닿는다면, Grafana 의 자료�
 
 헤더 파일은 저장소에 넣거나 남에게 보내지 않는다. 그만 쓸 때는 Grafana 에서 토큰을 지우고 파일도 지운다.
 
-## 알아 둘 것
+### 알아 둘 것
 
 - `up`이 0 이면 Prometheus 가 그 대상에서 수치를 긁어 오지 못했다는 뜻이다. 서버가 꺼졌다는 뜻과 같지는 않다. Prometheus 설정에서 빠진 대상은 창도 없어진다.
 - 창은 왼쪽 위부터 줄마다 `instance`(대상의 주소) 순으로 놓인다. 글자 순이라서 `node10:9100`이 `node1:9100`보다 앞에 온다.

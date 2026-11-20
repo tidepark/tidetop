@@ -120,7 +120,8 @@ npm 꾸러미는 얇은 감싸개다. 릴리즈와 같은 실행 파일을 운�
 - **여러 컴퓨터의 창 이어 붙이기**: 왼쪽 위 컴퓨터에서 `tidetop --grid 2x2 --pos 1`, 오른쪽 위에서 `--pos 2` 식으로 띄운다. 각 창은 자기 부하로 그림 하나의 조각을 그리고, 서로 통신하지 않는다. 바쁜 컴퓨터의 조각만 메마른다.
 - **직접 만드는 글자 그림**: `tidetop init my-art`가 견본 `0.txt`~`100.txt`를 만들고, `tidetop --art my-art`가 값이 다다른 숫자의 그림을 보여 준다.
 - **피드 읽기**: `tidetop --data feed.json`이나 `--data https://…`로 이 컴퓨터 대신 [tidepic](https://github.com/tidepark/tidepic) 피드를 읽는다. 스크립트가 파일을 쓴다면 피드에 0 보다 큰 `meta.ttl`을 적고, 값이 같아도 매번 다시 쓴다. 파일이 ttl 의 세 배보다 오래 그대로면 장면이 잿빛(끊김)이 되고 상태 줄(`i`)에 몇 초째 그대로인지 나와서, 스크립트가 멈췄을 때 옛 숫자가 지금 숫자처럼 보이지 않는다.
-- **Prometheus 와 Grafana**: `examples/prometheus.sh`가 15초마다 Prometheus 에 바로, 또는 Grafana 를 거쳐 묻고 windows 장면의 피드를 쓴다. 대상 하나가 창 하나이고, 수치를 긁어 오지 못한 대상은 검붉은 창이 된다. 쓰는 법은 [examples/README.ko.md](examples/README.ko.md)에 있다.
+- **서버의 다른 수치**: 디스크 남은 비율이나 트래픽 여유처럼 스크립트가 재어 피드로 쓰는 수치도 장면으로 볼 수 있다. 숲, 별하늘, 도서관은 값이 클수록 우거지니 쓴 양이 아니라 남은 양을 적는다. `--grid`와 같이 쓰면 조각마다 다른 수치를 그린다. 적는 법과 디스크, 트래픽(`examples/traffic.sh`)의 본보기는 [examples/README.ko.md](examples/README.ko.md)에 있다.
+- **Prometheus 와 Grafana**: `examples/prometheus.sh`가 15초마다 Prometheus 에 바로, 또는 Grafana 를 거쳐 묻고 windows 장면의 피드를 쓴다. 대상 하나가 창 하나이고, 수치를 긁어 오지 못한 대상은 검붉은 창이 된다. 쓰는 법은 [examples/README.ko.md](examples/README.ko.md#prometheus-와-grafana)에 있다.
 
 ## 부하
 
